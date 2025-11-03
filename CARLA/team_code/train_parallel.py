@@ -177,6 +177,12 @@ if __name__ == '__main__':
                         type=str,
                         default='/mnt/lustre/work/geiger/bjaeger25/ad_planning/2_carla/team_code_roach/custom_carla_container.sif',
                         help='/path/to/custom_carla_container.sif')
+    parser.add_argument('--algo',
+                        type=str,
+                        nargs='?',
+                        const=True,
+                        default='ppo',
+                        help='whether train on CaRL-PPO or SAC adapted from cleanrl')
 
     args, unknown = parser.parse_known_args()
     git_root = args.git_root
@@ -411,12 +417,19 @@ if __name__ == '__main__':
             f'{cpp_str_ports} --load_file {load_file} --num_envs {num_envs} --exp_name {args.exp_name} '
             f'--tcp_store_port {tcp_store_port} {cpp_str_gpu_ids} {unknown_str}',
             shell=True, stdout=train_out, stderr=train_err)
-      else:
+      elif args.algo=='ppo':
         train_process = subprocess.Popen(  # pylint: disable=locally-disabled, consider-using-with
             f'bash start_learner_dd_ppo.sh {git_root} {num_processes} {args.num_nodes} {args.rdzv_addr} '
             f'{args.rdzv_port} {cmdline} --ports {str_ports} --logdir {raw_logdir} --load_file {load_file} '
             f'--num_envs_per_proc {num_envs_per_proc} --tcp_store_port {tcp_store_port}',
             shell=True, stdout=train_out, stderr=train_err)
+      else:
+        train_process = subprocess.Popen(
+          f'bash start_learner_dd_sac.sh {git_root} {num_processes} {args.num_nodes} {args.rdzv_addr} '
+          f'{args.rdzv_port} {cmdline} --ports {str_ports} --logdir {raw_logdir} --load_file {load_file} '
+          f'--num_envs_per_proc {num_envs_per_proc} --tcp_store_port {tcp_store_port}',
+          shell=True, stdout=train_out, stderr=train_err
+        )
 
       time.sleep(1)
 
