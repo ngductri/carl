@@ -21,7 +21,7 @@ wandb login --relogin '3fe2c59de02d17028b44262900b4b0940afb05f4'
 # ============================================================================
 # EXPERIMENT CONFIGURATION
 # ============================================================================
-repetition=1
+repetition=2
 program_seed=$((000 + 100 * repetition))
 start_port=$((1024 + 1000 * repetition))
 ex_name=$(printf "SAC_3M_%02d" ${repetition})
@@ -55,17 +55,18 @@ python -u train_parallel.py \
   \
   `# SAC Algorithm Parameters` \
   --total_timesteps 1000000 \
-  --buffer_size 5000 \
-  --batch_size 64 \
-  --learning_starts 1000 \
+  --buffer_size 100 \
+  --batch_size 32 \
+  --learning_starts 10 \
   --policy_lr 0.0003 \
   --q_lr 0.0003 \
   --gamma 0.99 \
   --tau 0.005 \
   --alpha 0.2 \
-  --autotune_alpha True \
+  --autotune_alpha False \
   --policy_frequency 2 \
   --utd_ratio 1 \
+  --buffer_storage gpu \
   \
   `# Observation settings (matching CaRL)` \
   --use_new_bev_obs 1 \
@@ -100,7 +101,7 @@ python -u train_parallel.py \
   `# Route and scenario settings` \
   --routes_folder 1000_meters_old_scenarios_01 \
   --route_repetitions 20 \
-  --eval_time 300 \
+  --eval_time 1200 \
   --route_width 6 \
   --num_route_points_rendered 150 \
   \
