@@ -24,7 +24,7 @@ class CustomCnn(nn.Module):
   def __init__(self, config, n_input_channels):
     super().__init__()
     self.config = config
-    self.image_encoder = timm.create_model(config.image_encoder,
+    self.image_encoder = timm.create_model('resnet18',
                                            in_chans=n_input_channels,
                                            pretrained=False,
                                            features_only=True)
@@ -61,66 +61,66 @@ class XtMaCNN(nn.Module):
     if self.config.use_positional_encoding:
       n_input_channels += 2
 
-    if self.config.image_encoder == 'roach':
-      self.cnn = nn.Sequential(  # in [B, 15, 192, 192]
-          nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 94, 94]
-          nn.ReLU(),
-          nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 45, 45]
-          nn.ReLU(),
-          nn.Conv2d(16, 32, kernel_size=5, stride=2),  # -> [B, 32, 21, 21]
-          nn.ReLU(),
-          nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 10, 10]
-          nn.ReLU(),
-          nn.Conv2d(64, 128, kernel_size=3, stride=2),  # -> [B, 128, 4, 4]
-          nn.ReLU(),
-          nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
-          nn.ReLU(),
-      )
-    elif self.config.image_encoder == 'roach_ln':  # input is expected to be [B, C, 192, 192]
-      self.cnn = nn.Sequential(
-          nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 94, 94]
-          nn.LayerNorm((8, 94, 94)),
-          nn.ReLU(),
-          nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 45, 45]
-          nn.LayerNorm((16, 45, 45)),
-          nn.ReLU(),
-          nn.Conv2d(16, 32, kernel_size=5, stride=2),  # -> [B, 32, 21, 21]
-          nn.LayerNorm((32, 21, 21)),
-          nn.ReLU(),
-          nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 10, 10]
-          nn.LayerNorm((64, 10, 10)),
-          nn.ReLU(),
-          nn.Conv2d(64, 128, kernel_size=3, stride=2),  # -> [B, 128, 4, 4]
-          nn.LayerNorm((128, 4, 4)),
-          nn.ReLU(),
-          nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
-          nn.LayerNorm((256, 2, 2)),
-          nn.ReLU(),
-      )
-    elif self.config.image_encoder == 'roach_ln2':  # input is expected to be [B, C, 256, 256]
-      self.cnn = nn.Sequential(
-          nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 126, 126]
-          nn.LayerNorm((8, 126, 126)),
-          nn.ReLU(),
-          nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 61, 61]
-          nn.LayerNorm((16, 61, 61)),
-          nn.ReLU(),
-          nn.Conv2d(16, 24, kernel_size=5, stride=2),  # -> [B, 16, 29, 29]
-          nn.LayerNorm((24, 29, 29)),
-          nn.ReLU(),
-          nn.Conv2d(24, 32, kernel_size=5, stride=2),  # -> [B, 32, 13, 13]
-          nn.LayerNorm((32, 13, 13)),
-          nn.ReLU(),
-          nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 6, 6]
-          nn.LayerNorm((64, 6, 6)),
-          nn.ReLU(),
-          nn.Conv2d(64, 128, kernel_size=3, stride=1),  # -> [B, 128, 4, 4]
-          nn.LayerNorm((128, 4, 4)),
-          nn.ReLU(),
-          nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
-          nn.LayerNorm((256, 2, 2)),
-          nn.ReLU(),
-      )
+    # if self.config.image_encoder == 'roach':
+    #   self.cnn = nn.Sequential(  # in [B, 15, 192, 192]
+    #       nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 94, 94]
+    #       nn.ReLU(),
+    #       nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 45, 45]
+    #       nn.ReLU(),
+    #       nn.Conv2d(16, 32, kernel_size=5, stride=2),  # -> [B, 32, 21, 21]
+    #       nn.ReLU(),
+    #       nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 10, 10]
+    #       nn.ReLU(),
+    #       nn.Conv2d(64, 128, kernel_size=3, stride=2),  # -> [B, 128, 4, 4]
+    #       nn.ReLU(),
+    #       nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
+    #       nn.ReLU(),
+    #   )
+    # elif self.config.image_encoder == 'roach_ln':  # input is expected to be [B, C, 192, 192]
+    #   self.cnn = nn.Sequential(
+    #       nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 94, 94]
+    #       nn.LayerNorm((8, 94, 94)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 45, 45]
+    #       nn.LayerNorm((16, 45, 45)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(16, 32, kernel_size=5, stride=2),  # -> [B, 32, 21, 21]
+    #       nn.LayerNorm((32, 21, 21)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 10, 10]
+    #       nn.LayerNorm((64, 10, 10)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(64, 128, kernel_size=3, stride=2),  # -> [B, 128, 4, 4]
+    #       nn.LayerNorm((128, 4, 4)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
+    #       nn.LayerNorm((256, 2, 2)),
+    #       nn.ReLU(),
+    #   )
+    # elif self.config.image_encoder == 'roach_ln2':  # input is expected to be [B, C, 256, 256]
+    #   self.cnn = nn.Sequential(
+    #       nn.Conv2d(n_input_channels, 8, kernel_size=5, stride=2),  # -> [B, 8, 126, 126]
+    #       nn.LayerNorm((8, 126, 126)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(8, 16, kernel_size=5, stride=2),  # -> [B, 16, 61, 61]
+    #       nn.LayerNorm((16, 61, 61)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(16, 24, kernel_size=5, stride=2),  # -> [B, 16, 29, 29]
+    #       nn.LayerNorm((24, 29, 29)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(24, 32, kernel_size=5, stride=2),  # -> [B, 32, 13, 13]
+    #       nn.LayerNorm((32, 13, 13)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(32, 64, kernel_size=3, stride=2),  # -> [B, 64, 6, 6]
+    #       nn.LayerNorm((64, 6, 6)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(64, 128, kernel_size=3, stride=1),  # -> [B, 128, 4, 4]
+    #       nn.LayerNorm((128, 4, 4)),
+    #       nn.ReLU(),
+    #       nn.Conv2d(128, 256, kernel_size=3, stride=1),  # -> [B, 256, 2, 2]
+    #       nn.LayerNorm((256, 2, 2)),
+    #       nn.ReLU(),
+    #   )
     else:
       self.cnn = CustomCnn(config, n_input_channels)
 
