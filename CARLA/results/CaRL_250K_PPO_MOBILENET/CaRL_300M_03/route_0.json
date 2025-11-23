@@ -1,0 +1,161 @@
+{
+    "_checkpoint": {
+        "global_record": {},
+        "progress": [
+            29,
+            10000
+        ],
+        "records": [
+            {
+                "timestamp": "route_Town01_00.xml_route0_11_23_09_17_13",
+                "index": 0,
+                "route_id": "RouteScenario_0_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route1_11_23_09_39_31",
+                "index": 1,
+                "route_id": "RouteScenario_1_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route2_11_23_10_10_09",
+                "index": 2,
+                "route_id": "RouteScenario_2_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route3_11_23_10_18_57",
+                "index": 3,
+                "route_id": "RouteScenario_3_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route4_11_23_10_44_17",
+                "index": 4,
+                "route_id": "RouteScenario_4_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route5_11_23_10_56_21",
+                "index": 5,
+                "route_id": "RouteScenario_5_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route6_11_23_11_20_31",
+                "index": 6,
+                "route_id": "RouteScenario_6_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route7_11_23_11_50_43",
+                "index": 7,
+                "route_id": "RouteScenario_7_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route8_11_23_12_09_24",
+                "index": 8,
+                "route_id": "RouteScenario_8_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route9_11_23_12_33_30",
+                "index": 9,
+                "route_id": "RouteScenario_9_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route10_11_23_12_48_44",
+                "index": 10,
+                "route_id": "RouteScenario_10_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route11_11_23_13_19_33",
+                "index": 11,
+                "route_id": "RouteScenario_11_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route12_11_23_13_43_57",
+                "index": 12,
+                "route_id": "RouteScenario_12_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route13_11_23_14_00_03",
+                "index": 13,
+                "route_id": "RouteScenario_13_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route14_11_23_14_31_03",
+                "index": 14,
+                "route_id": "RouteScenario_14_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route15_11_23_14_42_19",
+                "index": 15,
+                "route_id": "RouteScenario_15_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route16_11_23_15_12_56",
+                "index": 16,
+                "route_id": "RouteScenario_16_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route17_11_23_15_34_00",
+                "index": 17,
+                "route_id": "RouteScenario_17_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route18_11_23_15_46_29",
+                "index": 18,
+                "route_id": "RouteScenario_18_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route19_11_23_15_51_44",
+                "index": 19,
+                "route_id": "RouteScenario_19_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route20_11_23_16_07_12",
+                "index": 20,
+                "route_id": "RouteScenario_20_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route21_11_23_16_37_53",
+                "index": 21,
+                "route_id": "RouteScenario_21_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route22_11_23_17_04_44",
+                "index": 22,
+                "route_id": "RouteScenario_22_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route23_11_23_17_26_10",
+                "index": 23,
+                "route_id": "RouteScenario_23_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route24_11_23_17_34_26",
+                "index": 24,
+                "route_id": "RouteScenario_24_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route25_11_23_17_51_22",
+                "index": 25,
+                "route_id": "RouteScenario_25_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route26_11_23_18_10_39",
+                "index": 26,
+                "route_id": "RouteScenario_26_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route27_11_23_18_41_37",
+                "index": 27,
+                "route_id": "RouteScenario_27_rep0"
+            },
+            {
+                "timestamp": "route_Town01_00.xml_route28_11_23_19_14_42",
+                "index": 28,
+                "route_id": "RouteScenario_28_rep0"
+            }
+        ]
+    },
+    "entry_status": "Started",
+    "eligible": false,
+    "sensors": [],
+    "values": [],
+    "labels": []
+}
