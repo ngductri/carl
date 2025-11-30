@@ -1,5 +1,5 @@
 # 🚗 CaRL – Customized Autonomous RL Pipeline
-*Forked & extended from the official CaRL repository*
+*Forked & extended from [Original CaRL Repository](https://github.com/autonomousvision/CaRL)*
 
 ---
 
