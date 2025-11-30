@@ -17,5 +17,21 @@ The current repository is a **fork of the official CaRL repo** with the purpose 
 
 ---
 
-## 📁 Repository Structure  
+## 📁 Repository Structure
+
+---
+
+## 🛠️ Setup Instructions
+
+Follow the steps below to set up the environment and prepare the project.
+
+### **1. Install Miniconda**
+```bash
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm ~/miniconda3/miniconda.sh
+source ~/miniconda3/bin/activate
+conda init --all
+
 
