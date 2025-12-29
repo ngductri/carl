@@ -187,57 +187,32 @@ class XtMaCNN(nn.Module):
     return x
 
 
-class WorldModelDecoder(nn.Module):
-  '''
-   Decoder that predicts a next state given features
-  '''
+class RNDModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim=512):
+        super().__init__()
 
-  def __init__(self, cnn_out_shape, cnn_n_flatten, states_neurons, features_dim, config):
-    super().__init__()
-    self.cnn_out_shape = cnn_out_shape
-    self.cnn_n_flatten = cnn_n_flatten
-    self.states_neurons = states_neurons
-    self.features_dim = features_dim
-    self.config = config
+        # Fixed random target
+        self.target = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+        for p in self.target.parameters():
+            p.requires_grad = False
 
-    if self.config.use_layer_norm:
-      self.linear_decoder = nn.Sequential(nn.Linear(features_dim, 512), nn.LayerNorm(512), nn.ReLU(),
-                                          nn.Linear(512, cnn_n_flatten + states_neurons),
-                                          nn.LayerNorm(cnn_n_flatten + states_neurons), nn.ReLU())
-    else:
-      self.linear_decoder = nn.Sequential(nn.Linear(features_dim, 512), nn.ReLU(),
-                                          nn.Linear(512, cnn_n_flatten + states_neurons), nn.ReLU())
+        # Trainable predictor
+        self.predictor = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
 
-    self.bev_semantic_decoder = nn.Sequential(
-        nn.Conv2d(self.cnn_out_shape[1], 128, (1, 1)),
-        nn.ReLU(inplace=True),
-        nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
-        nn.Conv2d(128, 64, (3, 3), padding=1),
-        nn.ReLU(inplace=True),
-        nn.Upsample(size=(self.config.bev_semantics_height // 4, self.config.bev_semantics_width // 4),
-                    mode='bilinear',
-                    align_corners=False),
-        nn.Conv2d(64, 32, (3, 3), padding=1),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(32, 16, (3, 3), padding=1),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(16, self.config.obs_num_channels + 1, kernel_size=(1, 1)),  # + 1 =  Background class
-        nn.Upsample(size=(self.config.bev_semantics_height, self.config.bev_semantics_width),
-                    mode='bilinear',
-                    align_corners=False))
+    def forward(self, x):
+        with torch.no_grad():
+            target_feat = self.target(x)
+        pred_feat = self.predictor(x)
+        return pred_feat, target_feat
 
-    self.measurement_decoder = nn.Linear(states_neurons, self.config.obs_num_measurements)
-
-  def forward(self, features):
-    features = self.linear_decoder(features)
-    features_cnn = features[:, :self.cnn_n_flatten]
-    features_measurements = features[:, self.cnn_n_flatten:]
-    features_cnn = features_cnn.view(-1, self.cnn_out_shape[1], self.cnn_out_shape[2], self.cnn_out_shape[3])
-
-    pred_semantic = self.bev_semantic_decoder(features_cnn)
-    pred_measurement = self.measurement_decoder(features_measurements)
-
-    return pred_semantic, pred_measurement
 
 
 class PPOPolicy(nn.Module):
@@ -256,7 +231,7 @@ class PPOPolicy(nn.Module):
     super().__init__()
     self.action_space = action_space
     self.config = config
-
+    self.rnd = RNDModel(input_dim=self.features_extractor.features_dim,hidden_dim=512)
     self.features_extractor = XtMaCNN(observation_space, config=config, states_neurons=states_neurons)
 
     if self.config.use_lstm:
@@ -416,6 +391,8 @@ class PPOPolicy(nn.Module):
         '''
 
     features = self.get_features(obs_dict)
+    pred, target = self.rnd(features)
+    intrinsic_reward = (pred - target).pow(2).mean(dim=1)
 
     if self.config.use_lstm:
       features, lstm_state = self.lstm_forward(features, lstm_state, done)
