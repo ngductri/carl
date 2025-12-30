@@ -79,6 +79,9 @@ class RunRedLight():
             }
     return info
 
+  def reset(self):
+    self._last_red_light_id = None
+
   @staticmethod
   def _is_vehicle_crossing_line(seg1, seg2):
     """

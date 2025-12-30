@@ -343,8 +343,9 @@ class EnvAgent(autonomous_agent.AutonomousAgent):
       control = carla.VehicleControl(steer=0.0, throttle=0.0, brake=1.0)
       return control
 
-    if self.step % self.config.action_repeat != 0:
-      return self.last_control
+    if self.config.algo != 'td3':
+      if self.step % self.config.action_repeat != 0:
+        return self.last_control
 
     # In some towns TL are red for a very long time and green for a short amount of time.
     # To balance this we set traffic lights on a route to green when the agent arrives, with a certain prob. per route
@@ -359,24 +360,39 @@ class EnvAgent(autonomous_agent.AutonomousAgent):
                                                                                    collision_with_pedestrian,
                                                                                    self.vehicles_all, self.walkers_all,
                                                                                    self.static_all, perc_off_road)
+    if self.config.algo == 'td3':
+      reward = float(np.clip(reward, -5.0, 5.0))
+      if termination:
+        reward -= 5.0
+      reward = reward * self.config.td3_reward_scale
+
+    if self.config.algo == 'td3':
+      done = termination
+      truncated = truncation
+    else:
+      done = termination
+      truncated = truncation
     if self.save_path is not None and self.record_infractions:
       self.collected_rewards.append(reward)
-
+#oke nhaaaaaaaaaa
     data = {
         'observation': obs,
         'reward': reward,
-        'termination': termination,
-        'truncation': truncation,
+        'termination': done,
+        'truncation': truncated,
         'info': exploration_suggest
     }
-    if termination or truncation:
-      self.termination = termination
-      self.truncation = truncation
+    if done or truncated:
+      self.termination = done
+      self.truncation = truncated
       self.data = data
       # Will terminate the route, call destroy and start the next one.
       if not init_tictoc:
         t.tic()
         init_tictoc = True
+
+      if self.config.algo == 'td3' and termination:
+        self.reward_handler.reset()
 
       if self.record_infractions and self.save_path is not None:
         rendered_obs = self.visu_model.visualize_model(None, obs['rendered'], obs['measurements'], self.last_control, None,
@@ -389,7 +405,7 @@ class EnvAgent(autonomous_agent.AutonomousAgent):
     self.socket.send_multipart(
         (data['observation']['bev_semantics'], data['observation']['measurements'],
          data['observation']['value_measurements'], np.array(data['reward'], dtype=np.float32),
-         np.array(data['termination'], dtype=bool), np.array(data['truncation'], dtype=bool),
+         np.array(done, dtype=bool), np.array(truncated, dtype=bool),
          np.array(data['info']['n_steps'], dtype=np.int32), np.array(data['info']['suggest'], dtype=np.int32),
          np.array(self.num_send, dtype=np.uint64)),
         copy=False)
@@ -441,16 +457,25 @@ class EnvAgent(autonomous_agent.AutonomousAgent):
       print('Leaderboard ended episode.')
       waypoint_route = self.get_waypoint_route()
       obs, collision_with_pedestrian, perc_off_road = self.preprocess_observation(waypoint_route, self.last_timestamp)
-      reward, termination, _, exploration_suggest = self.reward_handler.get(self.last_timestamp, waypoint_route,
-                                                                            collision_with_pedestrian,
-                                                                            self.vehicles_all, self.walkers_all,
-                                                                            self.static_all, perc_off_road)
-      # We define leaderboard termination as a truncation for the roach reward.
-      term = False
-      trunc = True
-      if termination:
-        term = True
-        trunc = False
+      reward, termination, truncation, exploration_suggest = self.reward_handler.get(
+          self.last_timestamp, waypoint_route, collision_with_pedestrian, self.vehicles_all, self.walkers_all,
+          self.static_all, perc_off_road)
+
+      if self.config.algo == 'td3':
+        reward = reward * self.config.td3_reward_scale
+        if termination:
+          term = True
+          trunc = False
+        else:
+          term = False
+          trunc = truncation if truncation else True
+      else:
+        # We define leaderboard termination as a truncation for the roach reward.
+        term = False
+        trunc = True
+        if termination:
+          term = True
+          trunc = False
 
       data = {
           'observation': obs,

@@ -154,3 +154,8 @@ class RunStopSign:
         self.stop_completed = False
 
     return info
+
+  def reset(self):
+    self.target_stop_sign = None
+    self.stop_completed = False
+    self.last_failed_stop = None

@@ -58,6 +58,12 @@ class Collision():
 
     return info
 
+  def reset(self):
+    self.collision_info = None
+    self.registered_collisions = []
+    self.last_id = None
+    self.collision_time = None
+
   @staticmethod
   def _on_collision(weakself, event):
     self = weakself()

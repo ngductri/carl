@@ -151,6 +151,12 @@ class GlobalConfig:
     # How often an action is repeated.
     self.action_repeat = 1
 
+    # Algorithm selection
+    self.algo = 'ppo'
+
+    # TD3-specific tuning
+    self.td3_reward_scale = 10.0
+
     # Action and observation space
     self.obs_num_measurements = 8  # Number of scalar measurements in observation.
     self.obs_num_channels = 15  # Number of channels in the bev observation.

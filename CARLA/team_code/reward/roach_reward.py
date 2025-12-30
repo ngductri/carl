@@ -226,6 +226,14 @@ class RoachReward(object):
 
     return reward, termination, truncation, exploration_suggest
 
+  def reset(self):
+    self.last_lat_dist = 0.0
+    self.last_steer = 0.0
+    self.block_detector.reset()
+    self.red_light_infraction_detector.reset()
+    self.stop_infraction_detector.reset()
+    self.collision_detector.clean()
+
   def destroy(self):
     self.collision_detector.clean()
 

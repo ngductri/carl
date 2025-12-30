@@ -32,6 +32,10 @@ class Blocked():
       self.time_till_blocked = 1.0
     return info
 
+  def reset(self):
+    self._time_last_valid_state = None
+    self.time_till_blocked = 1.0
+
   @staticmethod
   def _calculate_speed(carla_velocity):
     return np.linalg.norm([carla_velocity.x, carla_velocity.y])
