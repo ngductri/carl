@@ -155,7 +155,7 @@ class GlobalConfig:
     self.algo = 'ppo'
 
     # TD3-specific tuning
-    self.td3_reward_scale = 10.0
+    self.td3_reward_scale = 0.1  # Default reward scale for TD3
 
     # Action and observation space
     self.obs_num_measurements = 8  # Number of scalar measurements in observation.

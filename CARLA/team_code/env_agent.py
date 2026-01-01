@@ -426,13 +426,14 @@ class EnvAgent(autonomous_agent.AutonomousAgent):
 
   def convert_action_to_control(self, action):
     # Convert acceleration to brake / throttle. Acc in [-1,1]. Negative acceleration -> brake
-    if action[1] > 0.0:
-      throttle = action[1]
-      brake = 0.0
-    else:
-      throttle = 0.0
-      brake = -action[1]
-    control = carla.VehicleControl(steer=float(action[0]), throttle=float(throttle), brake=float(brake))
+    # Rescale action outputs to CARLA control commands
+    steer = action[0]  # Steer remains in [-1, 1]
+
+    # Map longitudinal control from [-1, 1] to throttle and brake
+    throttle = max(action[1], 0.0)  # Positive values for throttle
+    brake = max(-action[1], 0.0)  # Negative values for brake
+
+    control = carla.VehicleControl(steer=float(steer), throttle=float(throttle), brake=float(brake))
     return control
 
   def destroy(self, results=None):  # pylint: disable=locally-disabled, unused-argument

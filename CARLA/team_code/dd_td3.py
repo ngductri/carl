@@ -611,6 +611,77 @@ def obs_to_tensor(obs, device):
   }
 
 
+def build_spaces(config):
+  obs_space = gym.spaces.Dict({
+      'bev_semantics':
+          gym.spaces.Box(
+              0,
+              255,
+              shape=(config.obs_num_channels, config.bev_semantics_height, config.bev_semantics_width),
+              dtype=np.uint8),
+      'measurements':
+          gym.spaces.Box(-np.inf, np.inf, shape=(config.obs_num_measurements,), dtype=np.float32),
+  })
+
+  action_space = gym.spaces.Box(config.action_space_min,
+                                 config.action_space_max,
+                                 shape=(config.action_space_dim,),
+                                 dtype=np.float32)
+  return obs_space, action_space
+
+
+def init_rollout_sockets(args, config, local_rank, rank):
+  context = zmq.Context()
+  sockets = []
+  recv_counters = []
+  current_folder = pathlib.Path(__file__).parent.resolve()
+  comm_folder = os.path.join(current_folder, 'comm_files')
+  pathlib.Path(comm_folder).mkdir(parents=True, exist_ok=True)
+
+  for env_idx in range(args.num_envs_per_proc):
+    sock = context.socket(zmq.PAIR)
+    communication_file = os.path.join(comm_folder, str(args.ports[args.num_envs_per_proc * local_rank + env_idx]))
+    sock.bind(f'ipc://{communication_file}.lock')
+    hello_msg = sock.recv_string()
+    print(f'Rank {rank}, env {env_idx} handshake: {hello_msg}')
+    sockets.append(sock)
+    recv_counters.append(0)
+
+  return context, sockets, recv_counters
+
+
+def recv_env_message(sock, env_idx, recv_counters, config):
+  data = sock.recv_multipart(copy=False)
+  recv_counters[env_idx] += 1
+
+  bev = np.frombuffer(data[0], dtype=np.uint8).reshape(config.obs_num_channels, config.bev_semantics_height,
+                                                        config.bev_semantics_width)
+  measurements = np.frombuffer(data[1], dtype=np.float32)
+  _ = data[2]  # consume action mask / padding to keep alignment with leaderboard protocol
+  reward = float(np.frombuffer(data[3], dtype=np.float32).item())
+  termination = bool(np.frombuffer(data[4], dtype=np.bool_).item())
+  truncation = bool(np.frombuffer(data[5], dtype=np.bool_).item())
+  info = {
+      'n_steps': int(np.frombuffer(data[6], dtype=np.int32).item()),
+      'suggest': int(np.frombuffer(data[7], dtype=np.int32).item()),
+  }
+  num_sent = np.frombuffer(data[8], dtype=np.uint64).item()
+
+  if recv_counters[env_idx] != num_sent:
+    raise ValueError(
+        f'Communication breakdown, Leaderboard sent {num_sent} frames but learner consumed {recv_counters[env_idx]}')
+
+  obs = {'bev_semantics': bev, 'measurements': measurements}
+  return obs, reward, termination, truncation, info
+
+
+def stack_obs_list(obs_list):
+  return {
+      'bev_semantics': np.stack([obs['bev_semantics'] for obs in obs_list], axis=0),
+      'measurements': np.stack([obs['measurements'] for obs in obs_list], axis=0),
+  }
+
+
 def save_checkpoint(folder, prefix, actor, critic, actor_opt, critic_opt, config, global_step):
   checkpoint = {
       'actor': actor.module.state_dict(),
@@ -739,19 +810,10 @@ def main():
   del socket_list
   print(f'Rank {rank}, sent CONFIG files')
 
-  if args.num_envs_per_proc > 1:
-    env = gym.vector.AsyncVectorEnv([
-        make_env(args.gym_id, args, run_name, args.ports[args.num_envs_per_proc * local_rank + i], config)
-        for i in range(args.num_envs_per_proc)
-    ])
-  else:
-    env = gym.vector.SyncVectorEnv(
-        [make_env(args.gym_id, args, run_name, args.ports[args.num_envs_per_proc * local_rank + i], config)])
+  obs_space, action_space = build_spaces(config)
+  assert isinstance(action_space, gym.spaces.Box), 'only continuous action space is supported'
 
-  assert isinstance(env.single_action_space, gym.spaces.Box), 'only continuous action space is supported'
-
-  action_space = env.single_action_space
-  obs_space = env.single_observation_space
+  num_envs = args.num_envs_per_proc
   action_dim = action_space.shape[0]
 
   actor = TD3Actor(obs_space, action_dim, config).to(device)
@@ -814,34 +876,58 @@ def main():
                                action_dim=action_dim,
                                device=device)
 
-  reset_result = env.reset(seed=[args.seed + rank * args.num_envs_per_proc + i for i in range(args.num_envs_per_proc)])
-  if isinstance(reset_result, tuple):
-    obs, _ = reset_result
-  else:
-    obs = reset_result
+  rollout_context, rollout_sockets, recv_counters = init_rollout_sockets(args, config, local_rank, rank)
+
+  initial_obs_list = []
+  for env_idx, sock in enumerate(rollout_sockets):
+    init_obs, _, _, _, _ = recv_env_message(sock, env_idx, recv_counters, config)
+    initial_obs_list.append(init_obs)
+
+  obs = stack_obs_list(initial_obs_list)
 
   start_time = time.time()
   episode_returns = deque(maxlen=100)
   episode_lengths = deque(maxlen=100)
+  episode_returns_env = np.zeros(num_envs, dtype=np.float32)
+  episode_lengths_env = np.zeros(num_envs, dtype=np.int32)
 
   for global_step in range(start_step, args.total_timesteps):
     config.global_step = global_step
 
     if global_step < args.learning_starts:
-      actions = np.stack([action_space.sample() for _ in range(env.num_envs)])
+      actions = np.stack([action_space.sample() for _ in range(num_envs)])
     else:
       obs_tensor = obs_to_tensor(obs, device)
       with torch.no_grad():
         action_tensor = actor(obs_tensor)
-      noise = torch.randn_like(action_tensor) * action_scale * args.exploration_noise
-      action_tensor = torch.max(torch.min(action_tensor + noise, action_high), action_low)
+      noise = torch.zeros_like(action_tensor)
+      sigma = max(0.05, 0.2 * (1 - global_step / args.total_timesteps))  # Decay noise over time
+      noise[:, 0] = torch.randn_like(action_tensor[:, 0]) * sigma  # steer
+      noise[:, 1] = torch.randn_like(action_tensor[:, 1]) * sigma * 0.5  # throttle
+
+      action_tensor = torch.clamp(
+          action_tensor + noise,
+          action_low,
+          action_high
+      )
       actions = action_tensor.cpu().numpy()
 
-    step_result = env.step(actions)
-    next_obs, rewards, terminations, truncations, infos = step_result
-    dones = np.logical_or(terminations, truncations)
+    for env_idx, sock in enumerate(rollout_sockets):
+      sock.send(np.asarray(actions[env_idx], dtype=np.float32).tobytes(), copy=False)
 
-    for env_idx in range(env.num_envs):
+    next_obs_list = []
+    rewards = np.zeros(num_envs, dtype=np.float32)
+    dones = np.zeros(num_envs, dtype=bool)
+
+    for env_idx, sock in enumerate(rollout_sockets):
+      obs_i, reward_i, termination_i, truncation_i, _ = recv_env_message(sock, env_idx, recv_counters, config)
+      next_obs_list.append(obs_i)
+      rewards[env_idx] = reward_i
+      dones[env_idx] = termination_i  # Only consider termination as done
+
+    next_obs = stack_obs_list(next_obs_list)
+
+    for env_idx in range(num_envs):
       replay_buffer.add(
           {
               'bev_semantics': obs['bev_semantics'][env_idx],
@@ -853,20 +939,22 @@ def main():
               'bev_semantics': next_obs['bev_semantics'][env_idx],
               'measurements': next_obs['measurements'][env_idx],
           },
-          dones[env_idx],
+          float(dones[env_idx]),
       )
 
-    obs = next_obs
+      episode_returns_env[env_idx] += rewards[env_idx]
+      episode_lengths_env[env_idx] += 1
 
-    if writer is not None and 'final_info' in infos:
-      for single_info in infos['final_info']:
-        if single_info is not None and 'episode' in single_info:
-          ep_return = single_info['episode']['r']
-          ep_length = single_info['episode']['l']
-          episode_returns.append(ep_return)
-          episode_lengths.append(ep_length)
-          writer.add_scalar('charts/episodic_return', ep_return, global_step)
-          writer.add_scalar('charts/episodic_length', ep_length, global_step)
+      if dones[env_idx]:
+        episode_returns.append(episode_returns_env[env_idx])
+        episode_lengths.append(int(episode_lengths_env[env_idx]))
+        if writer is not None:
+          writer.add_scalar('charts/episodic_return', episode_returns_env[env_idx], global_step)
+          writer.add_scalar('charts/episodic_length', episode_lengths_env[env_idx], global_step)
+        episode_returns_env[env_idx] = 0.0
+        episode_lengths_env[env_idx] = 0
+
+    obs = next_obs
 
     actor_loss = None
     critic_loss = None
@@ -876,12 +964,13 @@ def main():
       assert batch['obs']['bev_semantics'].dtype == torch.float32, 'Obs tensors must be float32'
 
       with torch.no_grad():
-        noise = torch.randn_like(batch['actions']) * action_scale * args.policy_noise
-        noise = torch.max(torch.min(noise, action_scale * args.noise_clip), -action_scale * args.noise_clip)
-        next_actions = torch.max(torch.min(actor_target(batch['next_obs']) + noise, action_high), action_low)
+        noise = torch.randn_like(batch['actions']) * args.policy_noise  # Symmetric noise
+        noise = noise.clamp(-args.noise_clip, args.noise_clip)  # Clip noise
+        next_actions = (actor_target(batch['next_obs']) + noise).clamp(-1, 1)  # Clamp actions to [-1, 1]
         target_q1, target_q2 = critic_target(batch['next_obs'], next_actions)
         target_q = torch.min(target_q1, target_q2)
-        target = batch['rewards'] + (1 - batch['dones']) * args.gamma * target_q
+        batch['rewards'] = torch.clamp(batch['rewards'], -10.0, 10.0)  # Clamp rewards to stabilize training
+        target = batch['rewards'] + args.gamma * (1 - batch['dones']) * target_q  # Adjusted target calculation
 
       current_q1, current_q2 = critic(batch['obs'], batch['actions'])
       critic_loss = F.mse_loss(current_q1, target) + F.mse_loss(current_q2, target)
@@ -893,6 +982,9 @@ def main():
       if (global_step % args.policy_delay) == 0:
         actor_actions = actor(batch['obs'])
         actor_loss = -critic(batch['obs'], actor_actions)[0].mean()
+        # Add smooth penalty term to the actor loss
+        smooth_loss = 0.001 * torch.mean(actor_actions[:, 0]**2)  # Reduced smooth penalty for steering
+        actor_loss = actor_loss + smooth_loss
         actor_optimizer.zero_grad()
         actor_loss.backward()
         nn.utils.clip_grad_norm_(actor.parameters(), args.max_grad_norm)
@@ -903,18 +995,22 @@ def main():
     if writer is not None and global_step % 100 == 0:
       if critic_loss is not None:
         writer.add_scalar('losses/critic', critic_loss.item(), global_step)
+        writer.add_scalar('debug/q1_mean', current_q1.mean().item(), global_step)
+        writer.add_scalar('debug/q2_mean', current_q2.mean().item(), global_step)
       if actor_loss is not None:
         writer.add_scalar('losses/actor', actor_loss.item(), global_step)
       if len(episode_returns) > 0:
         writer.add_scalar('charts/windowed_avg_return', sum(episode_returns) / len(episode_returns), global_step)
-      steps_per_second = int(((global_step + 1) * env.num_envs) / (time.time() - start_time))
+      steps_per_second = int(((global_step + 1) * num_envs) / (time.time() - start_time))
       writer.add_scalar('charts/SPS', steps_per_second, global_step)
 
     if rank == 0 and global_step % 5000 == 0 and global_step > start_step:
       save_checkpoint(exp_folder, f'model_latest_{global_step:09d}', actor, critic, actor_optimizer,
                       critic_optimizer, config, global_step)
 
-  env.close()
+  for sock in rollout_sockets:
+    sock.close()
+  rollout_context.term()
   if writer is not None:
     save_checkpoint(exp_folder, 'model_final', actor, critic, actor_optimizer, critic_optimizer, config,
                     args.total_timesteps)
