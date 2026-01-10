@@ -21,17 +21,37 @@ Our fork is designed to **extend, improve, and experiment** beyond the original 
 > ⚠️ **Note:** This is *not* the official CaRL repository.  
 > It is a **research-oriented fork** tailored to our experiments in autonomous driving.
 
----
 
-## 🛠️ Setup Instructions
+🔍 Key Custom Modifications
 
-Follow the steps below to install Miniconda, configure the environment, and set up CARLA.
+Compared to the original CaRL repository, our fork introduces several research-focused modifications:
 
-### **1. Install Miniconda**
-```bash
-mkdir -p ~/miniconda3
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-rm ~/miniconda3/miniconda.sh
-source ~/miniconda3/bin/activate
-conda init --all
+Encoder Upgrades
+
+Replaced the original BEV (bird’s-eye-view) encoder with state-of-the-art vision backbones such as ResNet50 and MobileNetV3.
+
+Purpose: Evaluate how encoder capacity affects policy learning and driving performance of the agent.
+
+RL Algorithm Replacement
+
+Original CaRL uses PPO. We implemented Soft Actor-Critic (SAC) as an alternative.
+
+SAC is an off-policy, entropy-regularized algorithm, which can improve sample efficiency and robustness in continuous control tasks.
+
+This allows systematic comparison between on-policy (PPO) and off-policy (SAC) methods for autonomous driving.
+
+Hyperparameter Modifications
+
+Adjusted learning rates, batch sizes, discount factors, and exploration noise to better suit the modified encoders and SAC algorithm.
+
+This ensures more stable training and allows deeper analysis of encoder-policy interactions.
+
+Logging & Evaluation Enhancements
+
+Improved logging to track per-step rewards, collisions, success rates, and other driving metrics.
+
+Added richer evaluation tools for visualizing agent trajectories, comparing encoder performance, and analyzing failure cases.
+
+These modifications allow researchers to systematically analyze the effects of visual representations, RL algorithms, and hyperparameters on autonomous driving performance in CARLA.
+
+
