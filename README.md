@@ -35,7 +35,7 @@ Key objectives:
 
 | Component | Original CaRL | Our Fork | Purpose / Benefits |
 |-----------|---------------|----------|------------------|
-| **Encoder** | Basic BEV encoder | ResNet50, MobileNetV3 (SOTA) | Measure perception impact on policy; evaluate trade-offs between complexity and performance |
+| **Encoder** | Basic BEV encoder | ResNet50, MobileNetV3 | Measure perception impact on policy; evaluate trade-offs between complexity and performance |
 | **RL Algorithm** | PPO (on-policy) | SAC (off-policy) | More stable off-policy learning; better sample efficiency |
 | **Hyperparameters** | Default | Tuned learning rate, batch size, discount factor, exploration noise | Stabilize training across encoders and algorithms |
 | **Logging & Evaluation** | Basic logging | Detailed per-step metrics, trajectory visualization, encoder comparison | Facilitate research and debugging |
